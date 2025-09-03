@@ -66,9 +66,9 @@ sudo kubeadm init --image-repository=$Mirror --apiserver-advertise-address=$MAST
 
 mkdir -p "$HOME"/.kube
 sudo cp -i /etc/kubernetes/admin.conf "$HOME"/.kube/config
+sudo chown "$(id -u)":"$(id -g)" "$HOME"/.kube/config
 kubectl config rename-context kubernetes-admin@kubernetes k8s-cluster-$MASTER_IP
 kubectl config set-context "$(kubectl config current-context )" --namespace=kube-system
-sudo chown "$(id -u)":"$(id -g)" "$HOME"/.kube/config
 
 # Save Configs to shared /Vagrant location
 
@@ -82,7 +82,7 @@ else
   mkdir -p $config_path
 fi
 
-cp -i /etc/kubernetes/admin.conf /vagrant/configs/config
+cp -i "$HOME"/.kube/config /vagrant/configs/config
 touch /vagrant/configs/join.sh
 chmod +x /vagrant/configs/join.sh
 
@@ -122,9 +122,9 @@ kubectl create -f http://192.168.1.2:8080/soft/k8s/calico.yaml
 kubectl apply -f http://192.168.1.2:8080/soft/k8s/fix.metrics-server-0.8.0.yaml
 # kubectl delete -f  http://192.168.1.2:8080/soft/k8s/metrics-server-0.8.0.yaml
 # Install Kubernetes Dashboard
-
+kubectl create namespace kubernetes-dashboard
 # kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.5.1/aio/deploy/recommended.yaml
-kubectl apply -f http://192.168.1.2:8080/soft/k8s/kubernetes-dashboard-install.yml
+kubectl apply -n kubernetes-dashboard -f http://192.168.1.2:8080/soft/k8s/kubernetes-dashboard-install.yml
 
 # Add kubernetes-dashboard repository
 # helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
@@ -164,3 +164,5 @@ mkdir -p /home/vagrant/.kube
 sudo cp -i /vagrant/configs/config /home/vagrant/.kube/
 sudo chown 1000:1000 /home/vagrant/.kube/config
 EOF
+
+AT "Completed master setup......."
