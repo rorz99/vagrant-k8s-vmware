@@ -9,13 +9,11 @@ Vagrant.configure("2") do |config|
       echo "$IP_NW$((IP_START+2)) node2" >> /etc/hosts
   SHELL
 
-  config.vm.provision "shell", path: "sshkey.sh"
+  config.vm.provision "shell", path: "scripts/sshkey.sh"
   config.vm.box = "bento/ubuntu-22.04"
-  # config.vm.box = "generic/ubuntu2010"
   config.vm.box_check_update = false
 
   config.vm.define "master" do |master|
-    # master.vm.box = "bento/ubuntu-18.04"
     master.vm.hostname = "master"
     master.vm.network "public_network", ip: IP_NW + "#{IP_START}"
     master.vm.provider "vmware_desktop" do |vb|

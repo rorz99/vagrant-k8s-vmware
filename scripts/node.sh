@@ -2,6 +2,8 @@
 #
 # Setup for Node servers
 
+source /vagrant/scripts/source-env.sh
+AT "Start worker $HOSTNAME sedtup ..........."
 set -euxo pipefail
 
 /bin/bash /vagrant/configs/join.sh -v

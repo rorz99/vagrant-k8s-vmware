@@ -2,9 +2,12 @@
 #
 # Setup for Control Plane (Master) servers
 
+source /vagrant/scripts/source-env.sh
+AT "Start master sedtup ..........."
 set -euxo pipefail
 
-MASTER_IP="192.168.1.50"
+MASTER_IP="$(ip --json a s | jq -r '.[] | if .ifname == "eth1" then .addr_info[] | if .family == "inet" then .local else empty end else empty end')"
+# MASTER_IP="$local_ip"
 NODENAME=$(hostname -s)
 POD_CIDR="10.244.0.0/16"
 
@@ -63,6 +66,8 @@ sudo kubeadm init --image-repository=$Mirror --apiserver-advertise-address=$MAST
 
 mkdir -p "$HOME"/.kube
 sudo cp -i /etc/kubernetes/admin.conf "$HOME"/.kube/config
+kubectl config rename-context kubernetes-admin@kubernetes k8s-cluster-$MASTER_IP
+kubectl config set-context "$(kubectl config current-context )" --namespace=kube-system
 sudo chown "$(id -u)":"$(id -g)" "$HOME"/.kube/config
 
 # Save Configs to shared /Vagrant location
@@ -118,7 +123,8 @@ kubectl apply -f http://192.168.1.2:8080/soft/k8s/fix.metrics-server-0.8.0.yaml
 # kubectl delete -f  http://192.168.1.2:8080/soft/k8s/metrics-server-0.8.0.yaml
 # Install Kubernetes Dashboard
 
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.5.1/aio/deploy/recommended.yaml
+# kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.5.1/aio/deploy/recommended.yaml
+kubectl apply -f http://192.168.1.2:8080/soft/k8s/kubernetes-dashboard-install.yml
 
 # Add kubernetes-dashboard repository
 # helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
