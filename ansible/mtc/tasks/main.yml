@@ -1,0 +1,28 @@
+---
+- name: extend password change date to today
+  ansible.builtin.shell:
+    cmd: |
+      Day=$(date +%Y-%m-%d)
+      if [ ! -f /tmp/chage-$Day.log ];then
+        for u in root svc_p_hkg_ansible_ful vagrant; do
+          if id $u; then
+            echo "### $(hostname) $u ##########################"
+            chage -l $u
+            maxday=$(chage -l $u | awk '/Maximum number of days between password change/ {print $NF}')
+            [ $maxday -eq 60 ] && chage -d $Day $u
+            echo "######## $(hostname) $u ##################"
+            chage -l $u
+          fi
+        done | tee -a /tmp/chage-$Day.log
+      fi
+  register: extend_password_result
+  changed_when: false
+
+- name: Display extend_password_result
+  debug:
+    msg: "{{ extend_password_result.stdout }}"
+# - name: Display extend_password_result
+#   debug:
+#     msg: |
+#       extend_password_result {{ inventory_hostname }}:
+#       {{ extend_password_result.stdout }}

@@ -65,3 +65,10 @@ Pscom() {
 }
 
 export -f COLOR CMD AT ERR YAT LOGFILE LFON chk_add_if_not_exist Prompt Pscom
+
+export KUBERNETES_short_VERSION=1.29
+export KUBERNETES_short_VERSION=1.32
+export CRIO_VERSION=$KUBERNETES_short_VERSION
+export KUBERNETES_VERSION="1.32.8-1.1"
+export k8s="1.32.8"
+# "1.32.8-1.1"  # 1.32.9-1.1

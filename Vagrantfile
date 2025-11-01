@@ -1,4 +1,4 @@
-NUM_WORKER_NODES=2
+NUM_WORKER_NODES=3
 IP_NW="192.168.1."
 IP_START=50
 
@@ -25,6 +25,7 @@ Vagrant.configure("2") do |config|
 
     master.vm.provision "shell", path: "scripts/common.sh"
     master.vm.provision "shell", path: "scripts/master.sh"
+    # master.vm.provision "ansible", playbook: "ansible/full.yml", run: "always"
   end
 
   (1..NUM_WORKER_NODES).each do |i|
@@ -41,6 +42,7 @@ Vagrant.configure("2") do |config|
 
     node.vm.provision "shell", path: "scripts/common.sh"
     node.vm.provision "shell", path: "scripts/node.sh"
+    # node.vm.provision "ansible", playbook: "ansible/full.yml", run: "always"
   end
 
   end

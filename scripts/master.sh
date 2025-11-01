@@ -30,7 +30,7 @@ insecure = true ' > /etc/containerd/registries.conf
 # sudo kubeadm config images pull --image-repository=$Mirror
 # sudo crictl pull $Mirror/pause:3.8 && sudo ctr -n k8s.io images tag $Mirror/pause:3.8 registry.k8s.io/pause:3.8
 # kubeadm config images pull --image-repository=$Mirror
-# kubeadm config images list --image-repository kc.io --kubernetes-version v1.32.8 
+# kubeadm config images list --image-repository kc.io --kubernetes-version v1.32.8
 
 ## --image-repository=kc.io
 ## kubeadm config images pull --image-repository arti.mydomain.net:8082/k8s-local
@@ -62,69 +62,108 @@ echo "Preflight Check Passed: Downloaded All Required Images"
 
 ## --node-labels=node.kubernetes.io/node=''
 
-sudo kubeadm init --image-repository=$Mirror --apiserver-advertise-address=$MASTER_IP --apiserver-cert-extra-sans=$MASTER_IP --pod-network-cidr=$POD_CIDR --node-name "$NODENAME"  --v=9 --ignore-preflight-errors Swap
+if [[ ! -f /etc/kubernetes/admin.conf ]];then
 
-mkdir -p "$HOME"/.kube
-sudo cp -i /etc/kubernetes/admin.conf "$HOME"/.kube/config
-sudo chown "$(id -u)":"$(id -g)" "$HOME"/.kube/config
-kubectl config rename-context kubernetes-admin@kubernetes k8s-cluster-$MASTER_IP
-kubectl config set-context "$(kubectl config current-context )" --namespace=kube-system
+  sudo kubeadm init --kubernetes-version=$k8s --image-repository=$Mirror --apiserver-advertise-address=$MASTER_IP --apiserver-cert-extra-sans=$MASTER_IP --pod-network-cidr=$POD_CIDR --node-name "$NODENAME"  --v=9 --ignore-preflight-errors Swap
 
-# Save Configs to shared /Vagrant location
+  mkdir -p "$HOME"/.kube
+  sudo cp -i /etc/kubernetes/admin.conf "$HOME"/.kube/config
+  sudo chown "$(id -u)":"$(id -g)" "$HOME"/.kube/config
+  kubectl config rename-context kubernetes-admin@kubernetes k8s-cluster-$MASTER_IP
+  kubectl config set-context "$(kubectl config current-context )" --namespace=kube-system
 
-# For Vagrant re-runs, check if there is existing configs in the location and delete it for saving new configuration.
+  # Save Configs to shared /Vagrant location
 
-config_path="/vagrant/configs"
+  # For Vagrant re-runs, check if there is existing configs in the location and delete it for saving new configuration.
 
-if [ -d $config_path ]; then
-  rm -f $config_path/*
+  config_path="/vagrant/configs"
+
+  if [ -d $config_path ]; then
+    rm -f $config_path/*
+  else
+    mkdir -p $config_path
+  fi
+
+  cp -i "$HOME"/.kube/config /vagrant/configs/config
+  touch /vagrant/configs/join.sh
+  chmod +x /vagrant/configs/join.sh
+  command=$(kubeadm token create --print-join-command)
+
+  echo "
+if [[ \$(hostname) == 'node3' ]] ;then
+    $command
+    kubectl taint nodes \$(hostname) 'CriticalAddonsOnly=true:NoSchedule'
+    echo 'apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: production-pool
+  namespace: metallb-system
+spec:
+  addresses:
+  - 192.168.1.100-192.168.1.150' | kubectl -f -
 else
-  mkdir -p $config_path
+    $command
+fi" > /vagrant/configs/join.sh
+
+  # Install Calico Network Plugin
+
+  # curl https://docs.projectcalico.org/manifests/calico.yaml -O
+  # kubectl apply -f calico.yaml
+
+  # kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.30.2/manifests/calico.yaml
+  kubectl create -f http://192.168.1.2:8080/soft/k8s/calico.yaml
+
+
+  ### flannel ######################################
+  # https://github.com/flannel-io/flannel
+  # curl https://raw.githubusercontent.com/yutao517/mirror/main/profile/kube-flannel.yml -O
+  # kubectl apply -f kube-flannel.yml
+
+  # kubectl create ns kube-flannel
+  # kubectl label --overwrite ns kube-flannel pod-security.kubernetes.io/enforce=privileged
+
+  # helm repo add flannel https://flannel-io.github.io/flannel/
+  # helm install flannel --set podCidr="10.244.0.0/16" --namespace kube-flannel flannel/flannel
+
+  # curl -O http://192.168.1.2:8080/soft/k8s/cni-plugins-linux-amd64-v1.7.1.tgz
+  # tar -C /opt/cni/bin -xzf cni-plugins-linux-amd64-v1.7.1.tgz
+  ################################################################
+
+
+  # Install Metrics Server
+  # sed -i 's#registry.k8s.io/metrics-server/metrics-server:v0.8.0#swr.cn-north-4.myhuaweicloud.com/ddn-k8s/registry.k8s.io/metrics-server/metrics-server:v0.8.0#' deployment.yaml
+  # kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml   # 0.8.x	metrics.k8s.io/v1beta1	1.31+
+  # kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.8.0/components.yaml   # 0.8.x	metrics.k8s.io/v1beta1	1.31+
+  # kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.7.2/components.yaml   # 0.7.x	metrics.k8s.io/v1beta1	1.27+
+  # kubectl apply -f http://192.168.1.2:8080/soft/k8s/metrics-server-0.7.2.yaml
+  kubectl apply -f http://192.168.1.2:8080/soft/k8s/fix.metrics-server-0.8.0.yaml
+  # kubectl delete -f  http://192.168.1.2:8080/soft/k8s/metrics-server-0.8.0.yaml
+  # Install Kubernetes Dashboard
+  kubectl create namespace kubernetes-dashboard
+  # kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.5.1/aio/deploy/recommended.yaml
+  kubectl apply -n kubernetes-dashboard -f http://192.168.1.2:8080/soft/k8s/kubernetes-dashboard-install.yml
+
+  kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.15.2/config/manifests/metallb-native.yaml
+
 fi
 
-cp -i "$HOME"/.kube/config /vagrant/configs/config
-touch /vagrant/configs/join.sh
-chmod +x /vagrant/configs/join.sh
-
-kubeadm token create --print-join-command > /vagrant/configs/join.sh
-
-# Install Calico Network Plugin
-
-# curl https://docs.projectcalico.org/manifests/calico.yaml -O
-# kubectl apply -f calico.yaml
-
-# kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.30.2/manifests/calico.yaml
-kubectl create -f http://192.168.1.2:8080/soft/k8s/calico.yaml
+# cat > metallb-config.yaml <<EOF
+# apiVersion: metallb.io/v1beta1
+# kind: IPAddressPool
+# metadata:
+#   name: production-pool
+#   namespace: metallb-system
+# spec:
+#   addresses:
+#   - 192.168.1.100-192.168.1.150
+# EOF
 
 
-### flannel ######################################
-# https://github.com/flannel-io/flannel
-# curl https://raw.githubusercontent.com/yutao517/mirror/main/profile/kube-flannel.yml -O
-# kubectl apply -f kube-flannel.yml
+# kubectl apply -f metallb-config.yaml
 
-# kubectl create ns kube-flannel
-# kubectl label --overwrite ns kube-flannel pod-security.kubernetes.io/enforce=privileged
+kubectl get ns  |grep ingress-basic || kubectl create ns ingress-basic
+kubectl apply -f http://192.168.1.2:8080/soft/k8s/inst.ingress.yml
 
-# helm repo add flannel https://flannel-io.github.io/flannel/
-# helm install flannel --set podCidr="10.244.0.0/16" --namespace kube-flannel flannel/flannel
-
-# curl -O http://192.168.1.2:8080/soft/k8s/cni-plugins-linux-amd64-v1.7.1.tgz
-# tar -C /opt/cni/bin -xzf cni-plugins-linux-amd64-v1.7.1.tgz
-################################################################
-
-
-# Install Metrics Server
-# sed -i 's#registry.k8s.io/metrics-server/metrics-server:v0.8.0#swr.cn-north-4.myhuaweicloud.com/ddn-k8s/registry.k8s.io/metrics-server/metrics-server:v0.8.0#' deployment.yaml
-# kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml   # 0.8.x	metrics.k8s.io/v1beta1	1.31+
-# kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.8.0/components.yaml   # 0.8.x	metrics.k8s.io/v1beta1	1.31+
-# kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.7.2/components.yaml   # 0.7.x	metrics.k8s.io/v1beta1	1.27+
-# kubectl apply -f http://192.168.1.2:8080/soft/k8s/metrics-server-0.7.2.yaml
-kubectl apply -f http://192.168.1.2:8080/soft/k8s/fix.metrics-server-0.8.0.yaml
-# kubectl delete -f  http://192.168.1.2:8080/soft/k8s/metrics-server-0.8.0.yaml
-# Install Kubernetes Dashboard
-kubectl create namespace kubernetes-dashboard
-# kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.5.1/aio/deploy/recommended.yaml
-kubectl apply -n kubernetes-dashboard -f http://192.168.1.2:8080/soft/k8s/kubernetes-dashboard-install.yml
 
 # Add kubernetes-dashboard repository
 # helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/

@@ -3,15 +3,16 @@
 # Common setup for all servers (Control Plane and Nodes)
 
 set -euxo pipefail
+# /vagrant/scripts/sshkey.sh
 
 source /vagrant/scripts/source-env.sh
 AT "Start common sedtup ..........."
 
-# Variable Declaration
-KUBERNETES_short_VERSION=1.29
-KUBERNETES_short_VERSION=1.32
-CRIO_VERSION=$KUBERNETES_short_VERSION
-KUBERNETES_VERSION="1.32.8-1.1"
+# Variable Declaration pls check source-env.sh
+# KUBERNETES_short_VERSION=1.29
+# KUBERNETES_short_VERSION=1.32
+# CRIO_VERSION=$KUBERNETES_short_VERSION
+# KUBERNETES_VERSION="1.32.8-1.1"  # 1.32.9-1.1
 
 # OS="xUbuntu_20.04"
 # OS="xUbuntu_21.10"
@@ -160,8 +161,8 @@ fi
 # echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://mirrors.aliyun.com/kubernetes/apt/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list
 
 sudo apt-get update -y
-# sudo apt-get install -y kubelet="$KUBERNETES_VERSION" kubectl="$KUBERNETES_VERSION" kubeadm="$KUBERNETES_VERSION"
-sudo apt-get install -y kubelet  kubectl  kubeadm
+sudo apt-get install -y kubelet="$KUBERNETES_VERSION" kubectl="$KUBERNETES_VERSION" kubeadm="$KUBERNETES_VERSION"
+# sudo apt-get install -y kubelet  kubectl  kubeadm
 sudo crictl config runtime-endpoint unix:///var/run/containerd/containerd.sock
 sudo crictl config image-endpoint unix:///var/run/containerd/containerd.sock
 
